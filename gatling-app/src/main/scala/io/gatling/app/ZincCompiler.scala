@@ -31,7 +31,9 @@ import xsbti.compile.CompileOrder
 
 object ZincCompiler extends StrictLogging {
 
-  def main(args: Array[String]) {
+  private val FoldersToCache = List("bin", "conf", "user-files")
+
+  def main(args: Array[String]): Unit = {
 
     val gatlingHome = args(0)
     val sourceDirectory = Directory(args(1))
@@ -49,7 +51,8 @@ object ZincCompiler extends StrictLogging {
           .collect { case file if file.hasExtension("scala") => file.jfile }
           .toSeq
 
-          def analysisCacheMapEntry(directoryName: String) = (gatlingHome / directoryName).jfile -> (binDirectory / "cache" / directoryName).jfile
+          def analysisCacheMapEntry(directoryName: String) =
+            (gatlingHome / directoryName).jfile -> (binDirectory / "cache" / directoryName).jfile
 
         Inputs.inputs(classpath = classpath,
           sources = sources,
@@ -57,7 +60,7 @@ object ZincCompiler extends StrictLogging {
           scalacOptions = Seq("-encoding", encoding, "-target:jvm-1.6", "-deprecation", "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps"),
           javacOptions = Nil,
           analysisCache = Some((binDirectory / "zincCache").jfile),
-          analysisCacheMap = Map(analysisCacheMapEntry("bin"), analysisCacheMapEntry("conf"), analysisCacheMapEntry("user-files")), // avoids having GATLING_HOME polluted with a "cache" folder
+          analysisCacheMap = FoldersToCache.map(analysisCacheMapEntry).toMap, // avoids having GATLING_HOME polluted with a "cache" folder
           forceClean = false,
           javaOnly = false,
           compileOrder = CompileOrder.JavaThenScala,
@@ -67,7 +70,7 @@ object ZincCompiler extends StrictLogging {
           mirrorAnalysis = false)
       }
 
-      def setupZincCompiler(): Setup = {
+      def setupZincCompiler: Setup = {
           def jarMatching(regex: String): JFile = {
             val compiledRegex = regex.r
             val jarUrl = classpathURLs
@@ -80,8 +83,8 @@ object ZincCompiler extends StrictLogging {
         val scalaCompiler = jarMatching("""(.*scala-compiler.*\.jar)$""")
         val scalaLibrary = jarMatching("""(.*scala-library.*\.jar)$""")
         val scalaReflect = jarMatching("""(.*scala-reflect.*\.jar)$""")
-        val sbtInterfaceSrc: JFile = new JFile(classOf[Compilation].getProtectionDomain.getCodeSource.getLocation.toURI)
-        val compilerInterfaceSrc: JFile = jarMatching("""(.*compiler-interface-.*-sources.jar)$""")
+        val sbtInterfaceSrc = new JFile(classOf[Compilation].getProtectionDomain.getCodeSource.getLocation.toURI)
+        val compilerInterfaceSrc = jarMatching("""(.*compiler-interface-.*-sources.jar)$""")
 
         Setup.setup(scalaCompiler = scalaCompiler,
           scalaLibrary = scalaLibrary,
@@ -89,7 +92,7 @@ object ZincCompiler extends StrictLogging {
           sbtInterface = sbtInterfaceSrc,
           compilerInterfaceSrc = compilerInterfaceSrc,
           javaHomeDir = None,
-          false)
+          forkJava = false)
       }
 
     // Setup the compiler
